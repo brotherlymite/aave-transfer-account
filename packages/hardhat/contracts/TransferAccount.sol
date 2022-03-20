@@ -30,6 +30,21 @@ contract TransferAccount is FlashLoanReceiverBaseV2, Withdrawable {
         bytes calldata params
     ) external override returns (bool) {
 
+        // Approve and Repay 500 DAI loan of Account 1
+        IERC20(0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD).approve(address(LENDING_POOL), 500 ether);
+        LENDING_POOL.repay(0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD, 500 ether, 1, 0xA72967b831d637617c728a057682b1436eba19F8);
+
+        // aBTC Balance
+        uint256 balance = IERC20(0x62538022242513971478fcC7Fb27ae304AB5C29F).balanceOf(0xA72967b831d637617c728a057682b1436eba19F8);
+        
+        // Transfer aBTC from Account 1 to Account 2
+        IERC20(0x62538022242513971478fcC7Fb27ae304AB5C29F).transferFrom(0xA72967b831d637617c728a057682b1436eba19F8, 0x946037d2E4225C74443e0220B390EacaCC64EA89, balance);
+
+        // Contract Borrowing 500 DAI + premiums to pay the flash loan fees 
+        uint256 borrowAmount = 500 ether;
+        borrowAmount = borrowAmount.add(premiums[0]);
+        LENDING_POOL.borrow(0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD, borrowAmount, 1, 0, 0x946037d2E4225C74443e0220B390EacaCC64EA89);
+
         // Approve the LendingPool contract allowance to *pull* the owed amount
         for (uint256 i = 0; i < assets.length; i++) {
             uint256 amountOwing = amounts[i].add(premiums[i]);
@@ -88,6 +103,15 @@ contract TransferAccount is FlashLoanReceiverBaseV2, Withdrawable {
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = amount;
 
+        _flashloan(assets, amounts);
+    }
+
+    function transferAccount() public onlyOwner {
+        address[] memory assets = new address[](1);
+        assets[0] = 0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 500 ether;
         _flashloan(assets, amounts);
     }
 }

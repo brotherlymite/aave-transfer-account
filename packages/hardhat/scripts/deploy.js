@@ -1,6 +1,7 @@
 const chalk = require("chalk");
 
 const main = async () => {
+  const [deployer] = await ethers.getSigners();
   console.log("\n 📡 Deploying contracts with the account:", deployer.address);
   console.log("Account balance:", (await deployer.getBalance()).toString());
   const TransferAccount = await ethers.getContractFactory("TransferAccount");
