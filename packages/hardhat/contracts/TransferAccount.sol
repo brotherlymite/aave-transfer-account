@@ -8,9 +8,22 @@ import { SafeMath } from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 contract TransferAccount is FlashLoanReceiverBaseV2, Withdrawable {
     using SafeMath for uint256;
+
     constructor(address _addressProvider)
         FlashLoanReceiverBaseV2(_addressProvider)
     {}
+
+    struct DebtTokenBalance {
+        address tokenAddress;
+        uint256 stableDebtTokenBalance;
+        uint256 variableDebtTokenBalance;
+    }
+
+    struct aTokenBalance {
+        address Token;
+        address aTokenAddress;
+        uint256 aTokenBalance;
+    }
 
     /**
      * @dev This function must be called only be the LENDING_POOL and takes care of repaying
@@ -20,7 +33,7 @@ contract TransferAccount is FlashLoanReceiverBaseV2, Withdrawable {
      * @param amounts The array of flash loaned asset amounts used to repay debts.
      * @param premiums The array of premiums incurred as additional debts.
      * @param initiator The address that initiated the flash loan, unused.
-     * @param params The byte array containing, in this case, the arrays of aTokens and aTokenAmounts.
+     * @param params The byte array containing, in this case, its contains the encoded params of transferAccount
      */
     function executeOperation(
         address[] calldata assets,
@@ -30,20 +43,48 @@ contract TransferAccount is FlashLoanReceiverBaseV2, Withdrawable {
         bytes calldata params
     ) external override returns (bool) {
 
-        // Approve and Repay 500 DAI loan of Account 1
-        IERC20(0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD).approve(address(LENDING_POOL), 500 ether);
-        LENDING_POOL.repay(0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD, 500 ether, 1, 0xA72967b831d637617c728a057682b1436eba19F8);
-
-        // aBTC Balance
-        uint256 balance = IERC20(0x62538022242513971478fcC7Fb27ae304AB5C29F).balanceOf(0xA72967b831d637617c728a057682b1436eba19F8);
+        (address _sender, address _recipient, DebtTokenBalance[] memory _DebtTokenBalance, aTokenBalance[] memory _aTokenBalance) = abi.decode(params, (address, address, DebtTokenBalance[], aTokenBalance[]));
         
-        // Transfer aBTC from Account 1 to Account 2
-        IERC20(0x62538022242513971478fcC7Fb27ae304AB5C29F).transferFrom(0xA72967b831d637617c728a057682b1436eba19F8, 0x946037d2E4225C74443e0220B390EacaCC64EA89, balance);
+        // Approve and Repay all Debt of Account 1
+        for(uint i=0; i<_DebtTokenBalance.length; i++) {
+            // Repay StableDebt
+            if (_DebtTokenBalance[i].stableDebtTokenBalance != 0) {
+                IERC20(_DebtTokenBalance[i].tokenAddress).approve(address(LENDING_POOL), _DebtTokenBalance[i].stableDebtTokenBalance);
+                LENDING_POOL.repay(_DebtTokenBalance[i].tokenAddress, _DebtTokenBalance[i].stableDebtTokenBalance, 1, _sender);
+            }
+            // Repay VariableDebt
+            if (_DebtTokenBalance[i].variableDebtTokenBalance != 0) {
+                IERC20(_DebtTokenBalance[i].tokenAddress).approve(address(LENDING_POOL), _DebtTokenBalance[i].variableDebtTokenBalance);
+                LENDING_POOL.repay(_DebtTokenBalance[i].tokenAddress, _DebtTokenBalance[i].variableDebtTokenBalance, 2, _sender);
+            }
+        }
 
-        // Contract Borrowing 500 DAI + premiums to pay the flash loan fees 
-        uint256 borrowAmount = 500 ether;
-        borrowAmount = borrowAmount.add(premiums[0]);
-        LENDING_POOL.borrow(0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD, borrowAmount, 1, 0, 0x946037d2E4225C74443e0220B390EacaCC64EA89);
+        // Transfer all aTokens from Account 1 to Account 2
+        for (uint i=0; i<_aTokenBalance.length; i++) {
+            IERC20(_aTokenBalance[i].aTokenAddress).transferFrom(_sender, _recipient, _aTokenBalance[i].aTokenBalance);
+        }
+        
+        // Borrow all DebtTokens from Account 2 + Flash Loan premium
+        for(uint i=0; i<_DebtTokenBalance.length; i++) {
+            bool flag = false;
+            // Borrow StableDebt
+            if (_DebtTokenBalance[i].stableDebtTokenBalance != 0) {
+                LENDING_POOL.borrow(_DebtTokenBalance[i].tokenAddress, _DebtTokenBalance[i].stableDebtTokenBalance.add(premiums[i]), 1, 0, _recipient);
+                flag = true;
+            }
+            // Borrow VariableDebt
+            if (_DebtTokenBalance[i].variableDebtTokenBalance != 0) {
+                uint256 borrowAmount;
+                if (flag == true) {
+                    // Flash Loan Premium already borrowed
+                    borrowAmount = _DebtTokenBalance[i].variableDebtTokenBalance;
+                } else {
+                    // Flash Loan Premium not borrowed
+                    borrowAmount = _DebtTokenBalance[i].variableDebtTokenBalance.add(premiums[i]);
+                }
+                LENDING_POOL.borrow(_DebtTokenBalance[i].tokenAddress, borrowAmount, 2, 0, _recipient);
+            }
+        }
 
         // Approve the LendingPool contract allowance to *pull* the owed amount
         for (uint256 i = 0; i < assets.length; i++) {
@@ -54,13 +95,13 @@ contract TransferAccount is FlashLoanReceiverBaseV2, Withdrawable {
         return true;
     }
 
-    function _flashloan(address[] memory assets, uint256[] memory amounts)
+    function _flashloan(address[] memory assets, uint256[] memory amounts, bytes memory _params)
         internal
     {
         address receiverAddress = address(this);
 
         address onBehalfOf = address(this);
-        bytes memory params = "";
+        bytes memory params = _params;
         uint16 referralCode = 0;
 
         uint256[] memory modes = new uint256[](assets.length);
@@ -81,37 +122,22 @@ contract TransferAccount is FlashLoanReceiverBaseV2, Withdrawable {
         );
     }
 
-    /*
-     *  Flash multiple assets
-     */
-    function flashloan(address[] memory assets, uint256[] memory amounts)
-        public onlyOwner
-    {
-        _flashloan(assets, amounts);
-    }
+    // Should be called by Account 1
+    function transferAccount(
+        address _recipientAccount, 
+        DebtTokenBalance[] memory _DebtTokenBalance, 
+        aTokenBalance[] memory _aTokenBalance
+    ) public {
 
-    /*
-     *  Flash loan 100000000000000000 wei (0.1 ether) worth of `_asset`
-     */
-    function flashloan(address _asset) public onlyOwner {
-        // bytes memory data = "";
-        uint256 amount = 100000000000000000;
+        bytes memory params = abi.encode(msg.sender, _recipientAccount, _DebtTokenBalance, _aTokenBalance);
+        address[] memory assets = new address[](_DebtTokenBalance.length);
+        uint256[] memory amounts = new uint256[](_DebtTokenBalance.length);
 
-        address[] memory assets = new address[](1);
-        assets[0] = _asset;
-
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = amount;
-
-        _flashloan(assets, amounts);
-    }
-
-    function transferAccount() public onlyOwner {
-        address[] memory assets = new address[](1);
-        assets[0] = 0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD;
-
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 500 ether;
-        _flashloan(assets, amounts);
+        // Flash Loan all the borrowed assets
+        for (uint i=0; i<_DebtTokenBalance.length; i++) {
+            assets[i] = _DebtTokenBalance[i].tokenAddress;
+            amounts[i] = (_DebtTokenBalance[i].stableDebtTokenBalance).add(_DebtTokenBalance[i].variableDebtTokenBalance);
+        }
+        _flashloan(assets, amounts, params);
     }
 }
