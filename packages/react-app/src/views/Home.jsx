@@ -77,18 +77,20 @@ function Home({ userSigner, provider, gasPrice }) {
     for(let i=0; i< aTokenBalancesHex.length; i++) {
       if(!aTokenBalancesHex[i].eq(0)) {
         let newBalance = ethers.BigNumber.from(aTokenBalancesHex[i]);
-        if (newBalance.lt(10000)) {
+        if (newBalance.lt(100000)) {
           console.log('Balance too low to be stored');
           newBalance = ethers.BigNumber.from('0');
         } else {
-          newBalance = newBalance.sub(newBalance.div(10000));
+          newBalance = newBalance.sub(newBalance.div(100000));
         }
+
         aTokenBalancesList.push({
           'Symbol': 'a'+ TOKEN_LIST[i].symbol,
           'ContractAddress': TOKEN_LIST[i].aTokenAddress,
           'tokenAddress': TOKEN_LIST[i].tokenAddress,
           'Balance': newBalance.toString(),
-          'Allowance': undefined
+          'Allowance': undefined,
+          'balanceInTokenDecimals': ethers.utils.formatUnits(newBalance, TOKEN_LIST[i].decimals)
         });
       }
     }
@@ -122,7 +124,8 @@ function Home({ userSigner, provider, gasPrice }) {
           'ContractAddress': TOKEN_LIST[i].stableDebtTokenAddress,
           'tokenAddress': TOKEN_LIST[i].tokenAddress,
           'Balance': stableDebtBalancesHex[i].toString(),
-          'borrowAllowance': undefined
+          'borrowAllowance': undefined,
+          'balanceInTokenDecimals': ethers.utils.formatUnits(stableDebtBalancesHex[i], TOKEN_LIST[i].decimals)
         });
       }
     }
@@ -156,7 +159,8 @@ function Home({ userSigner, provider, gasPrice }) {
           'ContractAddress': TOKEN_LIST[i].variableDebtTokenAddress,
           'tokenAddress': TOKEN_LIST[i].tokenAddress,
           'Balance': variableDebtBalancesHex[i].toString(),
-          'borrowAllowance': undefined
+          'borrowAllowance': undefined,
+          'balanceInTokenDecimals': ethers.utils.formatUnits(variableDebtBalancesHex[i], TOKEN_LIST[i].decimals)
         });
       }
     }
@@ -249,7 +253,7 @@ function Home({ userSigner, provider, gasPrice }) {
   }
 
   function checkATokensApprovalAndMoveToNextStep() {
-    if (aTokenBalances.length > 0 && current === 1) {
+    if (aTokenBalances.length > 0 && current === 1 && address1) {
       console.log('checkATokensApprovalAndMoveToNextStep');
       for (let i=0; i<aTokenBalances.length; i++) {
         if (aTokenBalances[i].Allowance === undefined) return;
@@ -301,7 +305,7 @@ function Home({ userSigner, provider, gasPrice }) {
   }
 
   async function refresh() {
-    await setUpdateStableDebtAllowancesFlag(false);
+    setUpdateStableDebtAllowancesFlag(false);
     setUpdateVariableDebtAllowancesFlag(false);
     await updateStableDebtAllowances(address2);
     await updateVariableDebtAllowances(address2);
@@ -420,16 +424,22 @@ function Home({ userSigner, provider, gasPrice }) {
             <Col span={8}>
             <Title level={4} style={{textAlign: "center"}}>Balance</Title>
             </Col>
+            <Col span={8}>
+            <Title level={4} style={{textAlign: "center"}}>Approval</Title>
+            </Col>
           </Row>
           {
             aTokenBalances.map((item, index) => (
               <div>
+                <Divider></Divider>
                 <Row>
                 <Col span={8} style={{ padding: 20}}>
                   <div style={{textAlign: "center" }}>{item.Symbol}</div>
                 </Col>
                 <Col span={8} style={{ padding: 20}}>
-                  <div style={{textAlign: "center" }}>{item.Balance}</div>
+                  <div style={{textAlign: "center" }}>
+                    {item.balanceInTokenDecimals}
+                  </div>
                 </Col>
                 <Col span={8} style={{ padding: 20}}>
                   { parseFloat(aTokenBalances[index].Allowance) < parseFloat(aTokenBalances[index].Balance) ? 
@@ -447,7 +457,8 @@ function Home({ userSigner, provider, gasPrice }) {
                   }
                 </Col>
                 </Row>
-              </div>
+                <Divider></Divider>
+              </div>  
             ))
           }
           {/* Refresh Button */}
@@ -472,14 +483,27 @@ function Home({ userSigner, provider, gasPrice }) {
               <Title level={4} style={{textAlign: "center", margin: 35}}>Stable Debt</Title>
               {
                 stableDebtBalances.length > 0 ? 
-                stableDebtBalances.map((item, index) => (
+                <div>
+                <Row>
+                  <Col span={8}>
+                  <Title level={4} style={{textAlign: "center"}}>debtToken</Title>
+                  </Col>
+                  <Col span={8}>
+                  <Title level={4} style={{textAlign: "center"}}>Balance</Title>
+                  </Col>
+                  <Col span={8}>
+                  <Title level={4} style={{textAlign: "center"}}>Approval</Title>
+                  </Col>
+                </Row>
+                {stableDebtBalances.map((item, index) => (
                   <div>
+                    <Divider></Divider>
                     <Row>
                     <Col span={8} style={{ padding: 20}}>
                       <div style={{textAlign: "center" }}>{item.Symbol}</div>
                     </Col>
                     <Col span={8} style={{ padding: 20}}>
-                      <div style={{textAlign: "center" }}>{item.Balance}</div>
+                      <div style={{textAlign: "center" }}>{item.balanceInTokenDecimals}</div>
                     </Col>
                     <Col span={8} style={{ padding: 20}}>
                       { stableDebtBalances[index].borrowAllowance && parseFloat(stableDebtBalances[index].borrowAllowance) < parseFloat(stableDebtBalances[index].Balance) ? 
@@ -496,22 +520,38 @@ function Home({ userSigner, provider, gasPrice }) {
                       }
                     </Col>
                     </Row>
+                    <Divider></Divider>
                   </div>
-                )) : <div style={{textAlign: "center" }}>No stable Debt</div>
+                ))}
+                </div>
+                : <div style={{textAlign: "center" }}>No stable Debt</div>
               }
             </Col>
             <Col span={12}>
               <Title level={4} style={{textAlign: "center", margin: 35}}>Variable Debt</Title>
               {
-                variableDebtBalances.length > 0 ? 
-                variableDebtBalances.map((item, index) => (
+                variableDebtBalances.length > 0 ?
+                <div>
+                <Row>
+                  <Col span={8}>
+                  <Title level={4} style={{textAlign: "center"}}>debtToken</Title>
+                  </Col>
+                  <Col span={8}>
+                  <Title level={4} style={{textAlign: "center"}}>Balance</Title>
+                  </Col>
+                  <Col span={8}>
+                  <Title level={4} style={{textAlign: "center"}}>Approval</Title>
+                  </Col>
+                </Row>
+                {variableDebtBalances.map((item, index) => (
                   <div>
+                    <Divider></Divider>
                     <Row>
                     <Col span={8} style={{ padding: 20}}>
                       <div style={{textAlign: "center" }}>{item.Symbol}</div>
                     </Col>
                     <Col span={8} style={{ padding: 20}}>
-                      <div style={{textAlign: "center" }}>{item.Balance}</div>
+                      <div style={{textAlign: "center" }}>{item.balanceInTokenDecimals}</div>
                     </Col>
                     <Col span={8} style={{ padding: 20}}>
                       { variableDebtBalances[index].borrowAllowance && parseFloat(variableDebtBalances[index].borrowAllowance) < parseFloat(variableDebtBalances[index].Balance) ? 
@@ -528,8 +568,11 @@ function Home({ userSigner, provider, gasPrice }) {
                       }
                     </Col>
                     </Row>
+                    <Divider></Divider>
                   </div>
-                )) : <div style={{textAlign: "center" }}>No Variable Debt</div>
+                ))} 
+                </div>
+                : <div style={{textAlign: "center" }}>No Variable Debt</div>
               }
             </Col>
           </Row>
