@@ -14,7 +14,6 @@ function Home({ userSigner, provider, gasPrice }) {
   const [latestAddress, setLatestAddress] = React.useState();
   const [address1, setAddress1] = React.useState('');
   const [address2, setAddress2] = React.useState('');
-  const [reload, setReload] = React.useState();
   const [aTokenBalances, setATokenBalances] = React.useState([{}]);
   const [stableDebtBalances, setStableDebtBalances] = React.useState([{}]);
   const [variableDebtBalances, setVariableDebtBalances] = React.useState([{}]);
@@ -32,7 +31,7 @@ function Home({ userSigner, provider, gasPrice }) {
     const params = [spender, amount];
     const action = 'approve';
     const unsignedRawTx = await contract.populateTransaction[action](...params);
-    console.log('unsignedRawTx: ', unsignedRawTx);
+    console.log('approve unsignedRawTx: ', unsignedRawTx);
     const tx = Transactor(provider, gasPrice);
     tx(unsignedRawTx, await updateATokenAllowances(address1));
   }
@@ -51,7 +50,7 @@ function Home({ userSigner, provider, gasPrice }) {
     const params = [delegatee, amountInBigNumber.toString()];
     const action = 'approveDelegation';
     const unsignedRawTx = await contract.populateTransaction[action](...params);
-    console.log('unsignedRawTx: ', unsignedRawTx);
+    console.log('approveDelegation unsignedRawTx: ', unsignedRawTx);
     const tx = Transactor(provider, gasPrice);
     tx(unsignedRawTx);
   }
@@ -93,7 +92,7 @@ function Home({ userSigner, provider, gasPrice }) {
         });
       }
     }
-    console.log('aTokenBalancesList: ', aTokenBalancesList);
+    console.log('aTokenBalances: ', aTokenBalancesList);
     setATokenBalances(aTokenBalancesList);
   }
 
@@ -127,7 +126,7 @@ function Home({ userSigner, provider, gasPrice }) {
         });
       }
     }
-    console.log('stableDebtBalancesList: ', stableDebtBalancesList);
+    console.log('stableDebtBalances: ', stableDebtBalancesList);
     setStableDebtBalances(stableDebtBalancesList);
   }
 
@@ -161,7 +160,7 @@ function Home({ userSigner, provider, gasPrice }) {
         });
       }
     }
-    console.log('variableDebtBalancesList: ', variableDebtBalancesList);
+    console.log('variableDebtBalances: ', variableDebtBalancesList);
     setVariableDebtBalances(variableDebtBalancesList);
   }
 
@@ -173,7 +172,6 @@ function Home({ userSigner, provider, gasPrice }) {
 
   async function getAddressAndBalances() {
     let address = await userSigner.getAddress();
-    console.log('address: ', address);
     setAddress1(address);
     getAllBalances(address);
   }
@@ -181,16 +179,15 @@ function Home({ userSigner, provider, gasPrice }) {
   async function updateATokenAllowances(address1) {
     if (provider && aTokenBalances.length > 0 && userSigner) {
       provider = userSigner;
-      console.log('updateATokenAllowances');
       const ethcallProvider = new Provider(provider, 42);
       const allowanceAbi = [
         'function allowance(address owner, address spender) view returns (uint256)'
       ];
       let callList = [];
       for (let i=0; i<aTokenBalances.length; i++) {
-          const tokenContract = new Contract(aTokenBalances[i].ContractAddress, allowanceAbi);
-          const tokenBalanceCall = tokenContract.allowance(address1, CONTRACT_ADDRESS);
-          callList.push(tokenBalanceCall);
+        const tokenContract = new Contract(aTokenBalances[i].ContractAddress, allowanceAbi);
+        const tokenBalanceCall = tokenContract.allowance(address1, CONTRACT_ADDRESS);
+        callList.push(tokenBalanceCall);
       }
       const resultList = await ethcallProvider.all(callList);
       const updatedATokenBalances = aTokenBalances;
@@ -204,7 +201,6 @@ function Home({ userSigner, provider, gasPrice }) {
   }
 
   async function updateStableDebtAllowances(address2) {
-    console.log('updateStableDebtAllowances called', 'address2: ', address2, 'flag: ',updateStableDebtAllowancesFlag );
     if (provider && stableDebtBalances.length > 0 && address2 !== '' && updateStableDebtAllowancesFlag===false) {
       console.log('updateStableDebtAllowances');
       const ethcallProvider = new Provider(provider, 42);
@@ -225,7 +221,6 @@ function Home({ userSigner, provider, gasPrice }) {
       }
       setUpdateStableDebtAllowancesFlag(true);
       setStableDebtBalances([...updatedStableDebtBalances]);
-      // reload ? setReload(false) : setReload(true);
     }
   }
 
@@ -250,13 +245,12 @@ function Home({ userSigner, provider, gasPrice }) {
       }
       setUpdateVariableDebtAllowancesFlag(true);
       setVariableDebtBalances(updatedVariableDebtBalances);
-      // reload ? setReload(false) : setReload(true);
     }
   }
 
   function checkATokensApprovalAndMoveToNextStep() {
-    console.log('checkATokensApprovalAndMoveToNextStep');
     if (aTokenBalances.length > 0 && current === 1) {
+      console.log('checkATokensApprovalAndMoveToNextStep');
       for (let i=0; i<aTokenBalances.length; i++) {
         if (aTokenBalances[i].Allowance === undefined) return;
         if (parseFloat(aTokenBalances[i].Allowance) < parseFloat(aTokenBalances[i].Balance)) {
@@ -294,9 +288,6 @@ function Home({ userSigner, provider, gasPrice }) {
   }
 
   async function checkForAddress2() {
-    console.log('check for address2');
-    console.log('flag ', flag);
-    console.log(address1, address2);
     if (flag && userSigner) {
       const currentAddress = await userSigner.getAddress();
       if(currentAddress !== address1 && address1 !== '' && address1 && currentAddress) {
@@ -312,17 +303,12 @@ function Home({ userSigner, provider, gasPrice }) {
   async function refresh() {
     await setUpdateStableDebtAllowancesFlag(false);
     setUpdateVariableDebtAllowancesFlag(false);
-    console.log('address2: ', address2);
-    // reload ? setReload(false) : setReload(true); [reload] // TODO: change to setStableDebtBalances(...newValue);
-    // if (current === 2) await checkForAddress2();
-    console.log('stableDebtBalances refresh: ', stableDebtBalances);
     await updateStableDebtAllowances(address2);
     await updateVariableDebtAllowances(address2);
     await checkDebtTokensApprovalAndMoveToNextStep();
   }
 
   async function executeTransfer() {
-    console.log('lessss goo');
     const DebtTokenBalance = [];
     if ((variableDebtBalances.length > 0 || stableDebtBalances.length > 0) && variableDebtBalances.length > 0 && address1 !== '' && address2 !== '') {
 
@@ -368,10 +354,10 @@ function Home({ userSigner, provider, gasPrice }) {
         'aTokenBalance': aTokenBalances[i].Balance,
       });
     }
-    console.log('ATokenBalance: ', ATokenBalance);
 
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, userSigner);
     const params = [address2, DebtTokenBalance, ATokenBalance];
+    console.log('transferAccount params: ', params);
     const action = 'transferAccount';
     const unsignedRawTx = await contract.populateTransaction[action](...params);
     console.log('unsignedRawTx transferAccount: ', unsignedRawTx);
@@ -386,18 +372,15 @@ function Home({ userSigner, provider, gasPrice }) {
 
   useEffect(() => {
     if(userSigner) {
-      console.log('latestAddress:', latestAddress, ' address1: ', address1);
       if (!flag) {
         setFlag(true);
         getAddressAndBalances();
         setCurrent(1);
       }
       aTokenBalances.length > 0 && address1 && updateATokenAllowancesFlag===false ? updateATokenAllowances(address1) : <></>;
-      // stableDebtBalances.length > 0 && address2 !== '' ? updateStableDebtAllowances(address2) : <></>;
       checkATokensApprovalAndMoveToNextStep();
       if (current === 2) checkForAddress2();
       getLatestAddress();
-      // refresh();
     }
   },[userSigner, aTokenBalances, stableDebtBalances, variableDebtBalances, current]);
 
