@@ -67,7 +67,7 @@ export default function Transactor(providerOrSigner, gasPrice, etherscan) {
             tx.gasPrice = gasPrice || ethers.utils.parseUnits("4.1", "gwei");
           }
           if (!tx.gasLimit) {
-            tx.gasLimit = ethers.utils.hexlify(120000);
+            tx.gasLimit = ethers.utils.hexlify(1000000);
           }
           if (DEBUG) console.log("RUNNING TX", tx);
           result = await signer.sendTransaction(tx);
@@ -75,9 +75,9 @@ export default function Transactor(providerOrSigner, gasPrice, etherscan) {
         if (DEBUG) console.log("RESULT:", result);
         // console.log("Notify", notify);
 
-        if (callback) {
-          callbacks[result.hash] = callback;
-        }
+        // if (callback) {
+        //   callbacks[result.hash] = callback;
+        // }
 
         // if it is a valid Notify.js network, use that, if not, just send a default notification
         if (notify && [1, 3, 4, 5, 42, 100].indexOf(network.chainId) >= 0) {
@@ -101,6 +101,7 @@ export default function Transactor(providerOrSigner, gasPrice, etherscan) {
               console.log("CHECK IN ON THE TX", txResult, provider);
               const currentTransactionReceipt = await provider.getTransactionReceipt(txResult.hash);
               if (currentTransactionReceipt && currentTransactionReceipt.confirmations) {
+                callbacks[result.hash] = callback;
                 callback({ ...txResult, ...currentTransactionReceipt });
                 clearInterval(listeningInterval);
               }
