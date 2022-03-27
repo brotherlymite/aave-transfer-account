@@ -181,9 +181,8 @@ function Home({ userSigner, provider, gasPrice }) {
   }
 
   async function updateATokenAllowances(address1) {
-    if (provider && aTokenBalances.length > 0 && userSigner) {
-      provider = userSigner;
-      const ethcallProvider = new Provider(provider, 42);
+    if (aTokenBalances.length > 0 && userSigner) {
+      const ethcallProvider = new Provider(userSigner, 42);
       const allowanceAbi = [
         'function allowance(address owner, address spender) view returns (uint256)'
       ];
@@ -253,7 +252,7 @@ function Home({ userSigner, provider, gasPrice }) {
   }
 
   function checkATokensApprovalAndMoveToNextStep() {
-    if (aTokenBalances.length > 0 && current === 1 && address1) {
+    if (aTokenBalances.length > 0 && current === 1 && address1 !== '') {
       console.log('checkATokensApprovalAndMoveToNextStep');
       for (let i=0; i<aTokenBalances.length; i++) {
         if (aTokenBalances[i].Allowance === undefined) return;

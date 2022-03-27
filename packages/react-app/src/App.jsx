@@ -21,9 +21,9 @@ import {
   NetworkSwitch,
 } from "./components";
 import { NETWORKS, ALCHEMY_KEY } from "./constants";
-import externalContracts from "./contracts/external_contracts";
+// import externalContracts from "./contracts/external_contracts";
 // contracts
-import deployedContracts from "./contracts/hardhat_contracts.json";
+// import deployedContracts from "./contracts/hardhat_contracts.json";
 import { Transactor, Web3ModalSetup } from "./helpers";
 import { Home, ExampleUI, Hints, Subgraph } from "./views";
 import { useStaticJsonRPC } from "./hooks";
@@ -70,9 +70,9 @@ function App(props) {
     if (injectedProvider && injectedProvider.provider && typeof injectedProvider.provider.disconnect == "function") {
       await injectedProvider.provider.disconnect();
     }
-    // setTimeout(() => {
-    //   window.location.reload();
-    // }, 1);
+    setTimeout(() => {
+      window.location.reload();
+    }, 1);
   };
 
   /* 💵 This hook will get the price of ETH from 🦄 Uniswap: */
@@ -100,7 +100,7 @@ function App(props) {
   const selectedChainId =
     userSigner && userSigner.provider && userSigner.provider._network && userSigner.provider._network.chainId;
 
-  const contractConfig = { deployedContracts: deployedContracts || {}, externalContracts: externalContracts || {} };
+  // const contractConfig = { deployedContracts: deployedContracts || {}, externalContracts: externalContracts || {} };
 
   // If you want to call a function on a new block
   useOnBlock(mainnetProvider, () => {
@@ -154,7 +154,7 @@ function App(props) {
           {/* pass in any web3 props to this Home component. For example, yourLocalBalance */}
           <Home userSigner={userSigner}  provider={injectedProvider} gasPrice={gasPrice}/>
         </Route>
-        <Route exact path="/debug">
+        {/* <Route exact path="/debug">
           <Contract
             name="YourContract"
             price={price}
@@ -164,7 +164,7 @@ function App(props) {
             blockExplorer={blockExplorer}
             contractConfig={contractConfig}
           />
-        </Route>
+        </Route> */}
       </Switch>
 
       <ThemeSwitch />

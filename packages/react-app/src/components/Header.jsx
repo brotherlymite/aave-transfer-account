@@ -6,7 +6,7 @@ export default function Header() {
     <a href="https://github.com/brotherlymite/aave-transfer-account" target="_blank" rel="noopener noreferrer">
       <PageHeader
         title="AAVE Flash Account Transfer"
-        subTitle="Transfer all your AAVE Positions from one account to another"
+        subTitle="Transfer all your AAVE Positions from one account to another (v2 Kovan MainMarket)"
         style={{ cursor: "pointer" }}
       />
     </a>
